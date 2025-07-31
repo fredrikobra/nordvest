@@ -1,73 +1,156 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
-import { Building2, TrendingUp, DollarSign, Leaf, MessageSquare, FileText } from "lucide-react"
-import { getProjects, getConversations, getProjectStats } from "@/lib/supabase"
+import { Building2, Leaf, DollarSign, MessageSquare, TrendingUp, Plus, Eye, Edit } from "lucide-react"
+import Link from "next/link"
 
-export default async function Dashboard() {
-  const [projects, conversations, stats] = await Promise.all([getProjects(), getConversations(), getProjectStats()])
+interface Project {
+  id: string
+  name: string
+  description: string
+  status: "draft" | "active" | "completed" | "cancelled"
+  created_at: string
+  estimated_cost: number
+  sustainability_score: number
+  location: string
+  project_type: string
+  square_meters: number
+}
+
+interface ProjectStats {
+  total_projects: number
+  active_projects: number
+  completed_projects: number
+  average_sustainability_score: number
+  total_estimated_value: number
+  events_last_30_days: number
+}
+
+export default function Dashboard() {
+  const [projects, setProjects] = useState<Project[]>([])
+  const [stats, setStats] = useState<ProjectStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [])
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true)
+
+      // Fetch projects
+      const projectsResponse = await fetch("/api/projects")
+      if (!projectsResponse.ok) throw new Error("Failed to fetch projects")
+      const projectsData = await projectsResponse.json()
+
+      // Fetch analytics stats
+      const statsResponse = await fetch("/api/analytics")
+      if (!statsResponse.ok) throw new Error("Failed to fetch stats")
+      const statsData = await statsResponse.json()
+
+      setProjects(projectsData.data || [])
+      setStats(statsData.data || null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
-        return "bg-green-500"
+        return "bg-green-100 text-green-800"
       case "completed":
-        return "bg-blue-500"
+        return "bg-blue-100 text-blue-800"
+      case "draft":
+        return "bg-yellow-100 text-yellow-800"
       case "cancelled":
-        return "bg-red-500"
+        return "bg-red-100 text-red-800"
       default:
-        return "bg-gray-500"
+        return "bg-gray-100 text-gray-800"
     }
   }
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "draft":
-        return "Utkast"
-      case "active":
-        return "Aktiv"
-      case "completed":
-        return "Fullført"
-      case "cancelled":
-        return "Avbrutt"
-      default:
-        return status
-    }
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("no-NO", {
+      style: "currency",
+      currency: "NOK",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)
+  }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card className="border-red-200">
+          <CardContent className="p-6">
+            <p className="text-red-600">Error: {error}</p>
+            <Button onClick={fetchDashboardData} className="mt-4">
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Prosjekt Dashboard</h1>
-          <p className="text-gray-600">Oversikt over alle byggeprosjekter og bærekraftsanalyser</p>
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-1">Oversikt over dine byggeprosjekter</p>
         </div>
+        <Link href="/projects/new">
+          <Button className="bg-green-600 hover:bg-green-700">
+            <Plus className="w-4 h-4 mr-2" />
+            Nytt Prosjekt
+          </Button>
+        </Link>
+      </div>
 
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      {/* Stats Cards */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Totale Prosjekter</CardTitle>
               <Building2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.total}</div>
-              <p className="text-xs text-muted-foreground">{stats.active} aktive prosjekter</p>
+              <div className="text-2xl font-bold">{stats.total_projects}</div>
+              <p className="text-xs text-muted-foreground">{stats.active_projects} aktive prosjekter</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Fullførte Prosjekter</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Bærekraftsscore</CardTitle>
+              <Leaf className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.completed}</div>
-              <p className="text-xs text-muted-foreground">
-                {stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}% av alle prosjekter
-              </p>
+              <div className="text-2xl font-bold">{Math.round(stats.average_sustainability_score)}</div>
+              <Progress value={stats.average_sustainability_score} className="mt-2" />
             </CardContent>
           </Card>
 
@@ -77,155 +160,167 @@ export default async function Dashboard() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {new Intl.NumberFormat("no-NO", {
-                  style: "currency",
-                  currency: "NOK",
-                  minimumFractionDigits: 0,
-                }).format(stats.totalValue)}
-              </div>
+              <div className="text-2xl font-bold">{formatCurrency(stats.total_estimated_value)}</div>
               <p className="text-xs text-muted-foreground">Estimert prosjektverdi</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Bærekraftsscore</CardTitle>
-              <Leaf className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Aktivitet</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.avgSustainabilityScore}/100</div>
-              <Progress value={stats.avgSustainabilityScore} className="mt-2" />
+              <div className="text-2xl font-bold">{stats.events_last_30_days}</div>
+              <p className="text-xs text-muted-foreground">Hendelser siste 30 dager</p>
             </CardContent>
           </Card>
         </div>
+      )}
 
-        {/* Projects Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Prosjektoversikt</CardTitle>
-            <CardDescription>Alle registrerte prosjekter med status og bærekraftsinformasjon</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="all" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="all">Alle</TabsTrigger>
-                <TabsTrigger value="active">Aktive</TabsTrigger>
-                <TabsTrigger value="completed">Fullførte</TabsTrigger>
-                <TabsTrigger value="draft">Utkast</TabsTrigger>
-              </TabsList>
+      {/* Projects Section */}
+      <Tabs defaultValue="all" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="all">Alle Prosjekter</TabsTrigger>
+          <TabsTrigger value="active">Aktive</TabsTrigger>
+          <TabsTrigger value="completed">Fullførte</TabsTrigger>
+          <TabsTrigger value="draft">Utkast</TabsTrigger>
+        </TabsList>
 
-              <TabsContent value="all" className="space-y-4">
-                <ProjectList projects={projects} getStatusColor={getStatusColor} getStatusText={getStatusText} />
-              </TabsContent>
+        <TabsContent value="all" className="space-y-4">
+          <ProjectsList projects={projects} />
+        </TabsContent>
 
-              <TabsContent value="active" className="space-y-4">
-                <ProjectList
-                  projects={projects.filter((p) => p.status === "active")}
-                  getStatusColor={getStatusColor}
-                  getStatusText={getStatusText}
-                />
-              </TabsContent>
+        <TabsContent value="active" className="space-y-4">
+          <ProjectsList projects={projects.filter((p) => p.status === "active")} />
+        </TabsContent>
 
-              <TabsContent value="completed" className="space-y-4">
-                <ProjectList
-                  projects={projects.filter((p) => p.status === "completed")}
-                  getStatusColor={getStatusColor}
-                  getStatusText={getStatusText}
-                />
-              </TabsContent>
+        <TabsContent value="completed" className="space-y-4">
+          <ProjectsList projects={projects.filter((p) => p.status === "completed")} />
+        </TabsContent>
 
-              <TabsContent value="draft" className="space-y-4">
-                <ProjectList
-                  projects={projects.filter((p) => p.status === "draft")}
-                  getStatusColor={getStatusColor}
-                  getStatusText={getStatusText}
-                />
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-      </div>
+        <TabsContent value="draft" className="space-y-4">
+          <ProjectsList projects={projects.filter((p) => p.status === "draft")} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
 
-function ProjectList({
-  projects,
-  getStatusColor,
-  getStatusText,
-}: {
-  projects: any[]
-  getStatusColor: (status: string) => string
-  getStatusText: (status: string) => string
-}) {
+function ProjectsList({ projects }: { projects: Project[] }) {
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("no-NO", {
+      style: "currency",
+      currency: "NOK",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "active":
+        return "bg-green-100 text-green-800"
+      case "completed":
+        return "bg-blue-100 text-blue-800"
+      case "draft":
+        return "bg-yellow-100 text-yellow-800"
+      case "cancelled":
+        return "bg-red-100 text-red-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
   if (projects.length === 0) {
     return (
-      <div className="text-center py-8">
-        <p className="text-gray-500">Ingen prosjekter funnet</p>
-      </div>
+      <Card>
+        <CardContent className="p-12 text-center">
+          <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Ingen prosjekter funnet</h3>
+          <p className="text-gray-600 mb-4">Kom i gang ved å opprette ditt første prosjekt</p>
+          <Link href="/projects/new">
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              Opprett Prosjekt
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
     )
   }
 
   return (
-    <div className="space-y-4">
+    <div className="grid gap-6">
       {projects.map((project) => (
         <Card key={project.id} className="hover:shadow-md transition-shadow">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h3 className="text-lg font-semibold">{project.name}</h3>
-                  <Badge className={`${getStatusColor(project.status)} text-white`}>
-                    {getStatusText(project.status)}
-                  </Badge>
-                  {project.sustainability_score && (
-                    <Badge variant="outline" className="text-green-600 border-green-600">
-                      <Leaf className="w-3 h-3 mr-1" />
-                      {project.sustainability_score}/100
-                    </Badge>
-                  )}
-                </div>
-
-                <p className="text-gray-600 mb-3">{project.description}</p>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium">Kunde:</span>
-                    <p className="text-gray-600">{project.user_name || "Ikke oppgitt"}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Bedrift:</span>
-                    <p className="text-gray-600">{project.company_name || "Ikke oppgitt"}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Estimert kostnad:</span>
-                    <p className="text-gray-600">
-                      {project.estimated_cost
-                        ? new Intl.NumberFormat("no-NO", {
-                            style: "currency",
-                            currency: "NOK",
-                            minimumFractionDigits: 0,
-                          }).format(project.estimated_cost)
-                        : "Ikke oppgitt"}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Opprettet:</span>
-                    <p className="text-gray-600">{new Date(project.created_at).toLocaleDateString("no-NO")}</p>
-                  </div>
-                </div>
+          <CardHeader>
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <CardTitle className="text-xl">{project.name}</CardTitle>
+                <CardDescription className="text-sm">{project.description?.slice(0, 150)}...</CardDescription>
               </div>
+              <Badge className={getStatusColor(project.status)}>
+                {project.status === "active" && "Aktiv"}
+                {project.status === "completed" && "Fullført"}
+                {project.status === "draft" && "Utkast"}
+                {project.status === "cancelled" && "Kansellert"}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div>
+                <p className="text-sm text-gray-600">Lokasjon</p>
+                <p className="font-medium">{project.location}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Type</p>
+                <p className="font-medium">{project.project_type}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Areal</p>
+                <p className="font-medium">{project.square_meters} m²</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Budsjett</p>
+                <p className="font-medium">{formatCurrency(project.estimated_cost)}</p>
+              </div>
+            </div>
 
-              <div className="flex gap-2 ml-4">
-                <Button variant="outline" size="sm">
-                  <MessageSquare className="w-4 h-4 mr-1" />
-                  Chat
-                </Button>
-                <Button variant="outline" size="sm">
-                  <FileText className="w-4 h-4 mr-1" />
-                  Detaljer
-                </Button>
+            {project.sustainability_score && (
+              <div className="mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-600">Bærekraftsscore</span>
+                  <span className="text-sm font-medium">{project.sustainability_score}/100</span>
+                </div>
+                <Progress value={project.sustainability_score} className="h-2" />
+              </div>
+            )}
+
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-gray-500">
+                Opprettet {new Date(project.created_at).toLocaleDateString("no-NO")}
+              </p>
+              <div className="flex space-x-2">
+                <Link href={`/projects/${project.id}`}>
+                  <Button variant="outline" size="sm">
+                    <Eye className="w-4 h-4 mr-1" />
+                    Vis
+                  </Button>
+                </Link>
+                <Link href={`/projects/${project.id}/chat`}>
+                  <Button variant="outline" size="sm">
+                    <MessageSquare className="w-4 h-4 mr-1" />
+                    Chat
+                  </Button>
+                </Link>
+                <Link href={`/projects/${project.id}/edit`}>
+                  <Button variant="outline" size="sm">
+                    <Edit className="w-4 h-4 mr-1" />
+                    Rediger
+                  </Button>
+                </Link>
               </div>
             </div>
           </CardContent>

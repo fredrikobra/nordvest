@@ -1,210 +1,474 @@
-import { xai } from '@ai-sdk/xai'
-import { generateText, streamText } from 'ai'
+import { xai } from "@ai-sdk/xai"
+import { generateText, streamText } from "ai"
+import { redisCache } from "./redis"
 
-export class AIService {
-  private static model = xai('grok-beta')
+export interface ProjectContext {
+  id: string
+  name: string
+  description?: string
+  location?: string
+  project_type?: string
+  square_meters?: number
+  budget_range?: string
+  sustainability_score?: number
+  estimated_cost?: number
+  special_requirements?: string[]
+  target_completion_date?: string
+}
 
-  static async generateResponse(message: string, context?: string) {
-    const systemPrompt = `Du er en ekspert på byggeinnredning og bærekraftige løsninger i Norge. 
-    Du jobber for Nordvest Bygginnredning og hjelper kunder med:
-    - Planlegging av kontorinnredning og byggeprosjekter
-    - Bærekraftige materialvalg og miljøvennlige løsninger
-    - Finansieringsmuligheter (Enova, grønne lån, skattefradrag)
-    - Norske byggeregler, standarder og beste praksis
-    - Kostnadsestimering og prosjektplanlegging
-    
-    Svar alltid på norsk og vær praktisk, hjelpsom og profesjonell.
-    Fokuser på konkrete råd og løsninger som er relevante for norske forhold.
-    ${context ? `\n\nProsjektkontekst: ${context}` : ''}`
+export interface SustainabilityAnalysis {
+  overall_score: number
+  recommendations: Array<{
+    category: string
+    title: string
+    description: string
+    impact_score: number
+    cost_estimate: number
+    savings_estimate: number
+    implementation_time: string
+    priority: number
+    environmental_impact: string
+    roi_months: number
+    certification_eligible: boolean
+  }>
+  compliance_status: {
+    tek17_compliant: boolean
+    energy_class: string
+    required_improvements: string[]
+  }
+  environmental_impact: {
+    co2_reduction: number
+    energy_savings: number
+    water_savings: number
+    waste_reduction: number
+  }
+}
 
+export interface FinancingOptions {
+  total_project_cost: number
+  financing_options: Array<{
+    type: string
+    title: string
+    description: string
+    amount: number
+    interest_rate: number
+    term_months: number
+    requirements: string[]
+    benefits: string[]
+    provider: string
+    application_url: string
+    eligibility_score: number
+    processing_time_days: number
+  }>
+  government_incentives: Array<{
+    name: string
+    amount: number
+    requirements: string[]
+    application_deadline: string
+  }>
+}
+
+export interface ProjectPlan {
+  phases: Array<{
+    name: string
+    description: string
+    duration_weeks: number
+    cost_estimate: number
+    dependencies: string[]
+    deliverables: string[]
+    sustainability_considerations: string[]
+  }>
+  timeline: {
+    total_duration_weeks: number
+    critical_path: string[]
+    milestones: Array<{
+      name: string
+      week: number
+      description: string
+    }>
+  }
+  risk_assessment: Array<{
+    risk: string
+    probability: string
+    impact: string
+    mitigation: string
+  }>
+  compliance_checkpoints: Array<{
+    phase: string
+    requirements: string[]
+    documentation_needed: string[]
+  }>
+}
+
+class AIServiceClass {
+  private model = xai("grok-beta")
+
+  async generateResponse(prompt: string, context?: string): Promise<string> {
     try {
+      // Check cache first
+      const cacheKey = redisCache.generateKey("ai-response", prompt)
+      const cached = await redisCache.get<string>(cacheKey)
+
+      if (cached) {
+        return cached
+      }
+
+      const systemPrompt = `Du er en ekspert norsk byggrådgiver som spesialiserer seg på bærekraftig bygging, renovering og interiørdesign. Du har dyp kunnskap om:
+
+- Norske byggeforskrifter (TEK17, NS-standarder)
+- Bærekraftige byggematerialer og teknikker
+- Energieffektivitet og miljøpåvirkning
+- Norske finansieringsalternativer og offentlige incentiver
+- Lokale leverandører og entreprenører
+- Klimahensyn for norsk bygging
+
+Gi alltid praktiske, gjennomførbare råd tilpasset norske forhold og forskrifter.${context ? `\n\nKontekst: ${context}` : ""}`
+
       const { text } = await generateText({
         model: this.model,
         system: systemPrompt,
-        prompt: message,
+        prompt,
         maxTokens: 1000,
       })
+
+      // Cache the response
+      await redisCache.set(cacheKey, text, { ttl: 3600 })
 
       return text
     } catch (error) {
-      console.error('AI generation error:', error)
-      return 'Beklager, jeg kan ikke svare på det akkurat nå. Prøv igjen senere eller kontakt oss direkte for hjelp.'
+      console.error("AI generation error:", error)
+      throw new Error("Kunne ikke generere svar fra AI-tjenesten")
     }
   }
 
-  static async streamResponse(message: string, context?: string) {
-    const systemPrompt = `Du er en ekspert på byggeinnredning og bærekraftige løsninger i Norge. 
-    Du jobber for Nordvest Bygginnredning og hjelper kunder med:
-    - Planlegging av kontorinnredning og byggeprosjekter
-    - Bærekraftige materialvalg og miljøvennlige løsninger
-    - Finansieringsmuligheter (Enova, grønne lån, skattefradrag)
-    - Norske byggeregler, standarder og beste praksis
-    - Kostnadsestimering og prosjektplanlegging
-    
-    Svar alltid på norsk og vær praktisk, hjelpsom og profesjonell.
-    ${context ? `\n\nProsjektkontekst: ${context}` : ''}`
-
+  async streamResponse(prompt: string, context?: string) {
     try {
-      const result = await streamText({
+      const systemPrompt = `Du er en ekspert norsk byggrådgiver som spesialiserer seg på bærekraftig bygging, renovering og interiørdesign. Du har dyp kunnskap om:
+
+- Norske byggeforskrifter (TEK17, NS-standarder)
+- Bærekraftige byggematerialer og teknikker
+- Energieffektivitet og miljøpåvirkning
+- Norske finansieringsalternativer og offentlige incentiver
+- Lokale leverandører og entreprenører
+- Klimahensyn for norsk bygging
+
+Gi alltid praktiske, gjennomførbare råd tilpasset norske forhold og forskrifter.${context ? `\n\nKontekst: ${context}` : ""}`
+
+      return streamText({
         model: this.model,
         system: systemPrompt,
-        prompt: message,
+        prompt,
+        maxTokens: 1000,
+      })
+    } catch (error) {
+      console.error("AI streaming error:", error)
+      throw new Error("Kunne ikke starte AI-samtale")
+    }
+  }
+
+  async analyzeSustainability(projectContext: ProjectContext): Promise<SustainabilityAnalysis> {
+    const cacheKey = redisCache.generateKey("sustainability", projectContext.id)
+
+    // Check cache first
+    const cached = await redisCache.get(cacheKey)
+    if (cached) {
+      return JSON.parse(cached)
+    }
+
+    const prompt = `Analyser bærekraftsaspektene ved dette norske byggeprosjektet og gi en omfattende vurdering.
+
+Prosjektdetaljer:
+- Navn: ${projectContext.name}
+- Beskrivelse: ${projectContext.description || "Ikke oppgitt"}
+- Lokasjon: ${projectContext.location || "Norge"}
+- Type: ${projectContext.project_type || "Generell bygging"}
+- Størrelse: ${projectContext.square_meters ? `${projectContext.square_meters}m²` : "Ikke spesifisert"}
+- Budsjett: ${projectContext.budget_range || "Ikke spesifisert"}
+- Spesielle krav: ${projectContext.special_requirements?.join(", ") || "Ingen"}
+- Målferdigstillelse: ${projectContext.target_completion_date || "Ikke spesifisert"}
+
+Gi en detaljert bærekraftsanalyse i følgende JSON-format:
+
+{
+  "overall_score": <tall 1-100>,
+  "recommendations": [
+    {
+      "category": "<energi|materialer|vann|avfall|inneklima>",
+      "title": "<anbefalingstittel>",
+      "description": "<detaljert beskrivelse>",
+      "impact_score": <tall 1-10>,
+      "cost_estimate": <tall i NOK>,
+      "savings_estimate": <årlige besparelser i NOK>,
+      "implementation_time": "<tidsramme>",
+      "priority": <tall 1-5>,
+      "environmental_impact": "<beskrivelse>",
+      "roi_months": <tall>,
+      "certification_eligible": <boolean>
+    }
+  ],
+  "compliance_status": {
+    "tek17_compliant": <boolean>,
+    "energy_class": "<A-G>",
+    "required_improvements": ["<forbedring>"]
+  },
+  "environmental_impact": {
+    "co2_reduction": <kg CO2/år>,
+    "energy_savings": <kWh/år>,
+    "water_savings": <liter/år>,
+    "waste_reduction": <kg/år>
+  }
+}
+
+Fokuser på norske byggstandarder, klimaforhold og tilgjengelige bærekraftige teknologier.`
+
+    try {
+      const result = await generateText({
+        model: this.model,
+        system: this.getSystemPrompt("sustainability", projectContext),
+        prompt,
         maxTokens: 1000,
       })
 
-      return result
+      const analysis = JSON.parse(result.text)
+
+      // Cache for 1 hour
+      await redisCache.set(cacheKey, JSON.stringify(analysis), { ttl: 3600 })
+
+      return analysis
     } catch (error) {
-      console.error('AI streaming error:', error)
-      throw error
+      console.error("Failed to generate sustainability analysis:", error)
+      throw new Error("Failed to generate sustainability analysis")
     }
   }
 
-  static async analyzeSustainability(projectData: any) {
-    const prompt = `Analyser bærekraften til dette byggeprosjektet og gi en score fra 1-100:
+  async suggestFinancing(projectContext: ProjectContext): Promise<FinancingOptions> {
+    const cacheKey = redisCache.generateKey("financing", `${projectContext.id}-${projectContext.estimated_cost || 0}`)
 
-Prosjektdata: ${JSON.stringify(projectData, null, 2)}
+    // Check cache first
+    const cached = await redisCache.get(cacheKey)
+    if (cached) {
+      return JSON.parse(cached)
+    }
 
-Vurder følgende faktorer:
-- Materialvalg og miljøpåvirkning (lokale vs importerte materialer)
-- Energieffektivitet (belysning, ventilasjon, isolasjon)
-- Avfallshåndtering og gjenbruk av materialer
-- Transportavstand for materialer og arbeidskraft
-- Levetid og vedlikeholdsbehov
-- Inneklima og helse (VOC-utslipp, naturlig lys)
-- Sertifiseringer (BREEAM, LEED, etc.)
+    const prompt = `Foreslå omfattende finansieringsalternativer for dette norske byggeprosjektet.
 
-Gi en detaljert analyse på norsk og konkrete anbefalinger for forbedring.
-Start svaret med "SCORE: [tall]" og fortsett med analysen.`
+Prosjektdetaljer:
+- Navn: ${projectContext.name}
+- Estimert kostnad: ${projectContext.estimated_cost ? `${projectContext.estimated_cost} NOK` : "Ikke spesifisert"}
+- Lokasjon: ${projectContext.location || "Norge"}
+- Type: ${projectContext.project_type || "Generell bygging"}
+- Størrelse: ${projectContext.square_meters ? `${projectContext.square_meters}m²` : "Ikke spesifisert"}
+- Bærekraftsscore: ${projectContext.sustainability_score || "Ikke vurdert"}
+
+Gi finansieringsanbefalinger i følgende JSON-format:
+
+{
+  "total_project_cost": <estimert kostnad i NOK>,
+  "financing_options": [
+    {
+      "type": "<grønt_lån|energieffektivitet|bærekraftstilskudd|skatteincitament|bedriftslån>",
+      "title": "<alternativtittel>",
+      "description": "<detaljert beskrivelse>",
+      "amount": <beløp i NOK>,
+      "interest_rate": <prosent>,
+      "term_months": <tall>,
+      "requirements": ["<krav>"],
+      "benefits": ["<fordel>"],
+      "provider": "<bank/institusjonsnavn>",
+      "application_url": "<URL>",
+      "eligibility_score": <tall 1-100>,
+      "processing_time_days": <tall>
+    }
+  ],
+  "government_incentives": [
+    {
+      "name": "<incentivnavn>",
+      "amount": <beløp i NOK>,
+      "requirements": ["<krav>"],
+      "application_deadline": "<dato>"
+    }
+  ]
+}
+
+Fokuser på gjeldende norske finansieringsalternativer, inkludert Enova-tilskudd, Husbanken-lån og store norske banker.`
 
     try {
-      const { text } = await generateText({
+      const result = await generateText({
         model: this.model,
-        system: 'Du er en bærekraftsekspert som analyserer byggeprosjekter i Norge med fokus på miljøpåvirkning og energieffektivitet.',
+        system: this.getSystemPrompt("financing", projectContext),
         prompt,
-        maxTokens: 1500,
+        maxTokens: 1000,
       })
 
-      // Extract score from response
-      const scoreMatch = text.match(/SCORE:\s*(\d+)/i)
-      const score = scoreMatch ? parseInt(scoreMatch[1]) : 50
+      const financing = JSON.parse(result.text)
 
-      // Split response into analysis and recommendations
-      const cleanText = text.replace(/SCORE:\s*\d+/i, '').trim()
-      const parts = cleanText.split(/anbefalinger?[:]/i)
-      const analysis = parts[0].trim()
-      const recommendationsText = parts[1] || ''
-      
-      const recommendations = recommendationsText
-        .split('\n')
-        .map(r => r.trim())
-        .filter(r => r.length > 10 && (r.startsWith('-') || r.startsWith('•') || r.match(/^\d+\./)))
-        .map(r => r.replace(/^[-•]\s*/, '').replace(/^\d+\.\s*/, ''))
-        .slice(0, 5)
+      // Cache for 24 hours
+      await redisCache.set(cacheKey, JSON.stringify(financing), { ttl: 86400 })
 
-      return {
-        score: Math.min(100, Math.max(1, score)),
-        analysis: analysis || 'Bærekraftsanalyse utført.',
-        recommendations: recommendations.length > 0 ? recommendations : [
-          'Vurder bruk av lokale og miljøsertifiserte materialer',
-          'Installer energieffektiv LED-belysning',
-          'Planlegg for optimal avfallshåndtering'
-        ]
-      }
+      return financing
     } catch (error) {
-      console.error('Sustainability analysis error:', error)
-      return {
-        score: 50,
-        analysis: 'Kunne ikke analysere bærekraft akkurat nå. Kontakt oss for en detaljert analyse.',
-        recommendations: [
-          'Kontakt oss for en personlig bærekraftsanalyse',
-          'Vurder miljøsertifiserte materialer',
-          'Planlegg for energieffektive løsninger'
-        ]
-      }
+      console.error("Failed to generate financing options:", error)
+      throw new Error("Failed to generate financing options")
     }
   }
 
-  static async suggestFinancing(projectData: any) {
-    const estimatedCost = projectData.estimated_cost || projectData.budget || 500000
-    const sustainabilityFocus = projectData.sustainability_focus || projectData.sustainability_score > 70
+  async generateProjectPlan(projectContext: ProjectContext): Promise<ProjectPlan> {
+    const cacheKey = redisCache.generateKey("plan", projectContext.id)
 
-    const prompt = `Foreslå finansieringsmuligheter for dette norske byggeprosjektet:
+    // Check cache first
+    const cached = await redisCache.get(cacheKey)
+    if (cached) {
+      return JSON.parse(cached)
+    }
 
-Prosjektdata: ${JSON.stringify(projectData, null, 2)}
-Estimert kostnad: ${estimatedCost} NOK
-Bærekraftsfokus: ${sustainabilityFocus ? 'Ja' : 'Nei'}
+    const prompt = `Lag en detaljert prosjektplan for dette norske byggeprosjektet.
 
-Inkluder følgende norske finansieringsalternativer:
-- Enova-støtte for energieffektivisering (konkrete programmer)
-- Grønne lån fra norske banker (DNB, Sparebank 1, etc.)
-- Skattefradrag og incentiver for miljøtiltak
-- Leasing-alternativer for utstyr og møbler
-- Kommunale støtteordninger
+Prosjektdetaljer:
+- Navn: ${projectContext.name}
+- Beskrivelse: ${projectContext.description || "Ikke oppgitt"}
+- Lokasjon: ${projectContext.location || "Norge"}
+- Type: ${projectContext.project_type || "Generell bygging"}
+- Størrelse: ${projectContext.square_meters ? `${projectContext.square_meters}m²` : "Ikke spesifisert"}
+- Budsjett: ${projectContext.budget_range || "Ikke spesifisert"}
+- Målferdigstillelse: ${projectContext.target_completion_date || "Ikke spesifisert"}
 
-Gi konkrete forslag med:
-- Estimerte beløp og prosentsatser
-- Krav og kvalifikasjonskriterier
-- Kontaktinformasjon der relevant
-- Tidsfrister for søknader`
+Gi en omfattende prosjektplan i følgende JSON-format:
+
+{
+  "phases": [
+    {
+      "name": "<fasenavn>",
+      "description": "<detaljert beskrivelse>",
+      "duration_weeks": <tall>,
+      "cost_estimate": <kostnad i NOK>,
+      "dependencies": ["<avhengighet>"],
+      "deliverables": ["<leveranse>"],
+      "sustainability_considerations": ["<hensyn>"]
+    }
+  ],
+  "timeline": {
+    "total_duration_weeks": <tall>,
+    "critical_path": ["<fase>"],
+    "milestones": [
+      {
+        "name": "<milepælnavn>",
+        "week": <ukenummer>,
+        "description": "<beskrivelse>"
+      }
+    ]
+  },
+  "risk_assessment": [
+    {
+      "risk": "<risikobeskrivelse>",
+      "probability": "<lav|middels|høy>",
+      "impact": "<lav|middels|høy>",
+      "mitigation": "<risikoreduksjonsstrategi>"
+    }
+  ],
+  "compliance_checkpoints": [
+    {
+      "phase": "<fasenavn>",
+      "requirements": ["<krav>"],
+      "documentation_needed": ["<dokument>"]
+    }
+  ]
+}
+
+Ta hensyn til norske byggesesonger, tillatelsesprosesser og lokale markedsforhold.`
 
     try {
-      const { text } = await generateText({
+      const result = await generateText({
         model: this.model,
-        system: 'Du er en finansieringsekspert som kjenner norske støtteordninger, banker og finansieringsmuligheter for byggeprosjekter.',
+        system: this.getSystemPrompt("planning", projectContext),
         prompt,
-        maxTokens: 1500,
+        maxTokens: 1000,
       })
 
-      // Parse response into structured format
-      const suggestions = text
-      
-      // Extract financing options from the text
-      const options = []
-      
-      if (sustainabilityFocus) {
-        options.push({
-          type: 'sustainability_grant',
-          description: 'Enova støtte for energieffektivisering - inntil 30% av investeringskostnad',
-          provider: 'Enova',
-          estimatedAmount: Math.min(estimatedCost * 0.3, 500000),
-          benefits: ['Ingen tilbakebetaling', 'Rask saksbehandling', 'Miljøgevinst']
-        })
-      }
+      const plan = JSON.parse(result.text)
 
-      options.push({
-        type: 'green_loan',
-        description: 'Grønt byggelån med redusert rente for miljøvennlige prosjekter',
-        provider: 'Norske banker (DNB, Sparebank 1)',
-        estimatedAmount: estimatedCost * 0.8,
-        benefits: ['Redusert rente', 'Fleksible nedbetalingsvilkår', 'Miljøfokus']
-      })
+      // Cache for 2 hours
+      await redisCache.set(cacheKey, JSON.stringify(plan), { ttl: 7200 })
 
-      if (estimatedCost > 200000) {
-        options.push({
-          type: 'tax_incentive',
-          description: 'Skattefradrag for energieffektivisering og miljøtiltak',
-          provider: 'Skatteetaten',
-          estimatedAmount: estimatedCost * 0.15,
-          benefits: ['Direkte skattefradrag', 'Ingen søknadsprosess', 'Umiddelbar gevinst']
-        })
-      }
-
-      return {
-        suggestions,
-        options
-      }
+      return plan
     } catch (error) {
-      console.error('Financing suggestion error:', error)
-      return {
-        suggestions: 'Kunne ikke generere finansieringsforslag akkurat nå. Kontakt oss for personlig rådgivning om finansieringsmuligheter.',
-        options: [
-          {
-            type: 'green_loan',
-            description: 'Grønt byggelån - kontakt din bank for tilbud',
-            provider: 'Norske banker'
-          }
-        ]
-      }
+      console.error("Failed to generate project plan:", error)
+      throw new Error("Failed to generate project plan")
+    }
+  }
+
+  private getSystemPrompt(
+    type: "chat" | "sustainability" | "financing" | "planning",
+    projectContext?: ProjectContext,
+  ): string {
+    const baseContext = `Du er en ekspert norsk byggrådgiver som spesialiserer seg på bærekraftig bygging, renovering og interiørdesign. Du har dyp kunnskap om:
+
+- Norske byggeforskrifter (TEK17, NS-standarder)
+- Bærekraftige byggematerialer og teknikker
+- Energieffektivitet og miljøpåvirkning
+- Norske finansieringsalternativer og offentlige incentiver
+- Lokale leverandører og entreprenører
+- Klimahensyn for norsk bygging
+
+Gi alltid praktiske, gjennomførbare råd tilpasset norske forhold og forskrifter.`
+
+    const projectInfo = projectContext
+      ? `
+
+Gjeldende prosjektkontekst:
+- Prosjekt: ${projectContext.name}
+- Lokasjon: ${projectContext.location || "Norge"}
+- Type: ${projectContext.project_type || "Generell bygging"}
+- Størrelse: ${projectContext.square_meters ? `${projectContext.square_meters}m²` : "Ikke spesifisert"}
+- Budsjett: ${projectContext.budget_range || "Ikke spesifisert"}
+- Bærekraftsscore: ${projectContext.sustainability_score || "Ikke vurdert"}
+- Spesielle krav: ${projectContext.special_requirements?.join(", ") || "Ingen spesifisert"}
+- Målferdigstillelse: ${projectContext.target_completion_date || "Ikke spesifisert"}`
+      : ""
+
+    switch (type) {
+      case "sustainability":
+        return `${baseContext}${projectInfo}
+
+Du utfører nå en omfattende bærekraftsanalyse. Fokuser på:
+1. TEK17-samsvar og energieffektivitet
+2. Bærekraftige materialer og byggemetoder
+3. Reduksjon av miljøpåvirkning
+4. Kostnadseffektive bærekraftsforbedringer
+5. Norske sertifiseringsmuligheter (BREEAM-NOR, Passivhus, etc.)
+
+Gi spesifikke, målbare anbefalinger med kostnadsestimater i NOK.`
+
+      case "financing":
+        return `${baseContext}${projectInfo}
+
+Du gir nå finansieringsanbefalinger. Fokuser på:
+1. Norske banker og låneinstitusjoner
+2. Offentlige tilskudd og incentiver (Enova, Husbanken, etc.)
+3. Grønne lån og bærekraftsfinansiering
+4. Skatteincitamenter og fradrag
+5. Regionale og kommunale støtteordninger
+
+Gi spesifikke långivere, gjeldende renter og søknadsprosesser.`
+
+      case "planning":
+        return `${baseContext}${projectInfo}
+
+Du lager nå en detaljert prosjektplan. Fokuser på:
+1. Norske byggesesonger og værhensyn
+2. Tillatelseskrav og godkjenningsprosesser
+3. Lokale leverandørers leveringstider og tilgjengelighet
+4. Tilgjengelighet av fagarbeidere i Norge
+5. Samsvarskontrollpunkter og inspeksjoner
+
+Lag en realistisk tidsplan med norske markedsforhold i tankene.`
+
+      default:
+        return `${baseContext}${projectInfo}
+
+Vær inspirerende og kreativ i dine forslag, og fokuser på å hjelpe brukeren med å visualisere og planlegge sitt drømmeprosjekt. Svar alltid på norsk og vær vennlig og profesjonell.`
     }
   }
 }
+
+export const aiService = new AIServiceClass()
+export const AIService = aiService // Named export for compatibility

@@ -1,28 +1,29 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getProject, updateProject, deleteProject } from "@/lib/supabase"
-import { CacheService } from "@/lib/redis"
+import { projectsApi } from "@/lib/supabase"
+import { cache } from "@/lib/redis"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { id } = params
 
-    // Try cache first
-    const cached = await CacheService.getCachedProject(id)
-    if (cached) {
-      return NextResponse.json(cached)
+    // Check cache first
+    const cacheKey = `project_${id}`
+    const cachedProject = await cache.getCachedProject(id)
+    if (cachedProject) {
+      return NextResponse.json(cachedProject)
     }
 
-    const project = await getProject(id)
+    const project = await projectsApi.getById(id)
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
-    // Cache for 10 minutes
-    await CacheService.cacheProject(project)
+    // Cache the project
+    await cache.cacheProject(id, project)
 
     return NextResponse.json(project)
   } catch (error) {
-    console.error("Error fetching project:", error)
+    console.error(`GET /api/projects/${params.id} error:`, error)
     return NextResponse.json({ error: "Failed to fetch project" }, { status: 500 })
   }
 }
@@ -32,14 +33,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const { id } = params
     const body = await request.json()
 
-    const project = await updateProject(id, body)
+    const updatedProject = await projectsApi.update(id, body)
 
-    // Invalidate caches
-    await CacheService.invalidateProject(id)
+    // Invalidate cache
+    await cache.invalidateProject(id)
 
-    return NextResponse.json(project)
+    return NextResponse.json(updatedProject)
   } catch (error) {
-    console.error("Error updating project:", error)
+    console.error(`PUT /api/projects/${params.id} error:`, error)
     return NextResponse.json({ error: "Failed to update project" }, { status: 500 })
   }
 }
@@ -48,14 +49,14 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
   try {
     const { id } = params
 
-    await deleteProject(id)
+    await projectsApi.delete(id)
 
-    // Invalidate caches
-    await CacheService.invalidateProject(id)
+    // Invalidate cache
+    await cache.invalidateProject(id)
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error deleting project:", error)
+    console.error(`DELETE /api/projects/${params.id} error:`, error)
     return NextResponse.json({ error: "Failed to delete project" }, { status: 500 })
   }
 }

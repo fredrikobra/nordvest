@@ -1,35 +1,45 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { AIService } from "@/lib/ai"
-import { createFinancingOption } from "@/lib/supabase"
+import { financingApi } from "@/lib/supabase"
+import { cache } from "@/lib/redis"
 
 export async function POST(request: NextRequest) {
   try {
-    const { projectId, projectData } = await request.json()
+    const { projectId, budget, sustainabilityScore } = await request.json()
 
-    if (!projectId || !projectData) {
-      return NextResponse.json({ error: "Project ID and data are required" }, { status: 400 })
+    // Check cache first
+    const cacheKey = `financing:${projectId}`
+    const cachedSuggestions = await cache.getCachedAnalysis(cacheKey)
+    if (cachedSuggestions) {
+      return NextResponse.json(cachedSuggestions)
     }
 
-    // Get financing suggestions from AI
-    const suggestions = await AIService.suggestFinancing(projectData)
+    // Generate AI suggestions
+    const suggestions = await AIService.generateFinancingSuggestions(budget, sustainabilityScore)
 
-    // Save financing options
+    // Save options to Supabase
     for (const option of suggestions.options) {
-      await createFinancingOption({
+      await financingApi.create({
         project_id: projectId,
-        type: option.type || "green_loan",
-        title: option.description.substring(0, 100),
+        type: option.type as any,
+        title: `${option.provider} - ${option.type}`,
         description: option.description,
-        provider: "AI Suggested",
+        amount: option.amount,
+        interest_rate: option.interestRate,
+        term_months: 60,
+        requirements: option.requirements,
+        benefits: [],
+        provider: option.provider,
+        application_url: null,
       })
     }
 
-    return NextResponse.json({
-      suggestions: suggestions.suggestions,
-      options: suggestions.options,
-    })
+    // Cache the suggestions
+    await cache.cacheAnalysis(cacheKey, suggestions)
+
+    return NextResponse.json(suggestions)
   } catch (error) {
-    console.error("Financing suggestion error:", error)
-    return NextResponse.json({ error: "Failed to suggest financing" }, { status: 500 })
+    console.error("POST /api/financing/suggest error:", error)
+    return NextResponse.json({ error: "Failed to generate financing suggestions" }, { status: 500 })
   }
 }

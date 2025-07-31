@@ -1,42 +1,43 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { AIService } from "@/lib/ai"
-import { createSustainabilityRecommendation, updateProject } from "@/lib/supabase"
+import { sustainabilityApi } from "@/lib/supabase"
+import { cache } from "@/lib/redis"
 
 export async function POST(request: NextRequest) {
   try {
-    const { projectId, projectData } = await request.json()
+    const { projectId, description } = await request.json()
 
-    if (!projectId || !projectData) {
-      return NextResponse.json({ error: "Project ID and data are required" }, { status: 400 })
+    // Check cache first
+    const cacheKey = `sustainability:${projectId}`
+    const cachedAnalysis = await cache.getCachedAnalysis(cacheKey)
+    if (cachedAnalysis) {
+      return NextResponse.json(cachedAnalysis)
     }
 
-    // Analyze sustainability with AI
-    const analysis = await AIService.analyzeSustainability(projectData)
+    // Generate AI analysis
+    const analysis = await AIService.generateSustainabilityAnalysis(description)
 
-    // Update project with sustainability score
-    await updateProject(projectId, {
-      sustainability_score: analysis.score,
-    })
-
-    // Save recommendations
+    // Save recommendations to Supabase
     for (const recommendation of analysis.recommendations) {
-      await createSustainabilityRecommendation({
+      await sustainabilityApi.create({
         project_id: projectId,
         category: "AI Generated",
-        title: recommendation.substring(0, 100),
+        title: recommendation,
         description: recommendation,
         impact_score: analysis.score,
+        cost_estimate: null,
+        savings_estimate: null,
+        implementation_time: null,
         priority: 1,
       })
     }
 
-    return NextResponse.json({
-      score: analysis.score,
-      analysis: analysis.analysis,
-      recommendations: analysis.recommendations,
-    })
+    // Cache the analysis
+    await cache.cacheAnalysis(cacheKey, analysis)
+
+    return NextResponse.json(analysis)
   } catch (error) {
-    console.error("Sustainability analysis error:", error)
+    console.error("POST /api/sustainability/analyze error:", error)
     return NextResponse.json({ error: "Failed to analyze sustainability" }, { status: 500 })
   }
 }

@@ -1,32 +1,24 @@
-'use client'
+"use client"
 
-import dynamic from 'next/dynamic'
+import dynamic from "next/dynamic"
+import { Skeleton } from "@/components/ui/skeleton"
 
-const MapClient = dynamic(() => import('./map-client'), {
+const MapClient = dynamic(() => import("./map-client"), {
   ssr: false,
-  loading: () => (
-    <div className="w-full h-96 bg-gray-100 rounded-lg flex items-center justify-center">
-      <div className="text-gray-500">Laster kart...</div>
-    </div>
-  )
+  loading: () => <Skeleton className="h-[450px] md:h-[500px] w-full rounded-xl" />,
 })
 
 export default function MapSection() {
   return (
-    <section className="py-16 bg-white">
-      <div className="container mx-auto px-4">
+    <section className="py-16 md:py-24 bg-white dark:bg-slate-950">
+      <div className="container px-4">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">
-            Våre Prosjekter i Norge
-          </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Se hvor vi har gjennomført byggeinnredningsprosjekter over hele landet
+          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4">Finn oss</h2>
+          <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
+            Besøk oss på Tua 24 i Ålesund for en uforpliktende samtale om ditt prosjekt.
           </p>
         </div>
-        
-        <div className="max-w-6xl mx-auto">
-          <MapClient />
-        </div>
+        <MapClient />
       </div>
     </section>
   )

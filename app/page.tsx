@@ -9,6 +9,7 @@ import SustainabilityHighlights from "@/components/sustainability-highlights"
 import MapSection from "@/components/map-section"
 import ContactSection from "@/components/contact-section"
 import FaqSection from "@/components/faq-section"
+import { InspirationChat } from "@/components/inspiration-chat"
 
 export default function HomePage() {
   return (
@@ -17,6 +18,14 @@ export default function HomePage() {
       <main className="flex-1">
         <HeroSection />
         <ProjectPlanner />
+
+        {/* AI Inspiration Chat Section */}
+        <section className="py-16 bg-gray-50">
+          <div className="container mx-auto px-4">
+            <InspirationChat />
+          </div>
+        </section>
+
         <ServicesSection />
         <ProcessSection />
         <HistorySection />
