@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useRef } from "react"
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -96,14 +94,8 @@ const StickyProgressTracker = ({
     }, 100)
   }
 
-  const handleInspirationSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Handle inspiration submission here
-    console.log("Inspiration:", inspirationText)
-  }
-
   const handleInspirationBlur = () => {
-    if (!inspirationText.trim()) {
+    if (!inspirationText) {
       setShowInspirationInput(false)
     }
   }
@@ -120,10 +112,10 @@ const StickyProgressTracker = ({
           className="fixed top-16 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 z-[1000]"
         >
           <div className="container mx-auto px-4">
-            <div className="h-14 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2 sm:gap-4">
+            <div className="h-14 flex items-center justify-between gap-2 sm:gap-4">
+              <div className="flex items-center gap-2 sm:gap-4 flex-1">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-medium text-slate-800 dark:text-slate-200 hidden sm:block">
+                  <h4 className="text-sm font-medium text-slate-800 dark:text-slate-200 hidden lg:block">
                     Valgte Løsninger
                   </h4>
                   <TooltipProvider delayDuration={0}>
@@ -148,34 +140,59 @@ const StickyProgressTracker = ({
                     </div>
                   </TooltipProvider>
                 </div>
+
                 <div className="flex items-center">
                   {showInspirationInput ? (
-                    <form onSubmit={handleInspirationSubmit} className="flex items-center">
+                    <motion.div
+                      initial={{ width: 0, opacity: 0 }}
+                      animate={{ width: "auto", opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex items-center gap-2"
+                    >
                       <input
                         ref={inputRef}
                         type="text"
-                        placeholder="Legg til inspirasjon..."
+                        placeholder="Link til inspirasjon..."
                         value={inspirationText}
                         onChange={(e) => setInspirationText(e.target.value)}
                         onBlur={handleInspirationBlur}
-                        className="w-32 sm:w-40 md:w-48 text-xs sm:text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            inputRef.current?.blur()
+                          }
+                        }}
+                        className="w-32 sm:w-40 bg-transparent text-sm border-b border-slate-300 dark:border-slate-600 focus:outline-none focus:border-green-500 transition-colors py-1 px-1"
                       />
-                    </form>
+                      {inspirationText && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setInspirationText("")
+                            setShowInspirationInput(false)
+                          }}
+                          className="h-6 w-6 p-0 text-slate-400 hover:text-slate-600"
+                        >
+                          ×
+                        </Button>
+                      )}
+                    </motion.div>
                   ) : (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={handleInspirationClick}
-                      className="text-xs sm:text-sm px-2 sm:px-3"
+                      className="text-sm px-2 sm:px-3 h-8"
                     >
-                      Inspirasjon
+                      <span className="text-xs sm:text-sm">+ Inspirasjon</span>
                     </Button>
                   )}
                 </div>
               </div>
-              <Button size="sm" variant="ghost" onClick={onJumpToPlanner}>
-                <ArrowUp className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">Til Planlegger</span>
+
+              <Button size="sm" variant="ghost" onClick={onJumpToPlanner} className="shrink-0">
+                <ArrowUp className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Til Planlegger</span>
               </Button>
             </div>
             <AnimatePresence>

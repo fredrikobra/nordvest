@@ -1,41 +1,70 @@
-import type { NextRequest } from "next/server"
-import { AIService } from "@/lib/ai"
-import { DatabaseService } from "@/lib/database"
+import { streamText } from "ai"
+import { xai } from "@ai-sdk/xai"
+import { createClient } from "@supabase/supabase-js"
 
-export async function POST(request: NextRequest) {
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
+
+export async function POST(req: Request) {
   try {
-    const { message, projectId, context } = await request.json()
+    const { messages, sessionId } = await req.json()
 
-    if (!message) {
-      return new Response("Melding er påkrevd", { status: 400 })
+    // Store session if it doesn't exist
+    const { error: sessionError } = await supabase.from("chat_sessions").upsert({
+      session_id: sessionId,
+      title: messages[1]?.content?.substring(0, 50) || "New Chat",
+    })
+
+    if (sessionError) {
+      console.error("Session error:", sessionError)
     }
 
-    // Get project context if projectId is provided
-    let projectContext = null
-    if (projectId) {
-      projectContext = await DatabaseService.getProject(projectId)
+    // Store user message
+    const userMessage = messages[messages.length - 1]
+    if (userMessage?.role === "user") {
+      await supabase.from("chat_messages").insert({
+        session_id: sessionId,
+        role: "user",
+        content: userMessage.content,
+      })
     }
 
-    // Combine context
-    const fullContext = {
-      ...context,
-      project: projectContext,
-    }
+    const result = await streamText({
+      model: xai("grok-beta"),
+      messages,
+      system: `Du er Nordvest Eksperten, en AI-assistent for Nordvest Bygginnredning AS. Du er ekspert på:
 
-    // Stream AI response
-    const result = await AIService.streamResponse(message, fullContext)
+- Kontorløsninger og bygginnredning
+- Glassvegger og systemvegger
+- Møteromssystemer og akustikkløsninger
+- Bærekraftige ombruksløsninger
+- Kontorplanlegging og design
 
-    // Store conversation in database (we'll get the full response when stream ends)
-    const conversation = await DatabaseService.createConversation({
-      project_id: projectId || null,
-      user_message: message,
-      ai_response: "Streaming...", // Will be updated when stream completes
-      context_data: fullContext,
+Svar alltid på norsk og vær hjelpsom, profesjonell og kunnskapsrik. Hvis du ikke vet svaret på noe, si det ærlig og foreslå at kunden kontakter oss direkte.
+
+Nordvest Bygginnredning AS tilbyr:
+- Systemvegger (fleksible og modulære veggløsninger)
+- Glassvegger (elegante løsninger for lys og åpenhet)
+- Akustikkløsninger (optimal lyddemping)
+- Ombruksløsninger (bærekraftige løsninger med høy gjenbruksgrad)
+- Kontorplanlegging og prosjektledelse
+
+Kontaktinformasjon:
+- Telefon: +47 XX XX XX XX
+- E-post: post@nordvestbygg.no
+- Adresse: [Adresse]`,
+      onFinish: async (result) => {
+        // Store assistant response
+        await supabase.from("chat_messages").insert({
+          session_id: sessionId,
+          role: "assistant",
+          content: result.text,
+        })
+      },
     })
 
     return result.toDataStreamResponse()
   } catch (error) {
     console.error("Chat API error:", error)
-    return new Response("Kunne ikke behandle samtale", { status: 500 })
+    return new Response("Internal Server Error", { status: 500 })
   }
 }
