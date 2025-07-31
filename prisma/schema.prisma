@@ -7,41 +7,41 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("NEON_DATABASE_URL")
 }
 
 model User {
-  id          Int      @id @default(autoincrement())
-  email       String   @unique
+  id            Int      @id @default(autoincrement())
+  email         String   @unique
   password_hash String
-  firstName   String?  @map("first_name")
-  lastName    String?  @map("last_name")
-  company     String?
-  userType    UserType @default(customer) @map("user_type")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  isActive    Boolean  @default(true) @map("is_active")
-  projects    Project[]
+  firstName     String?  @map("first_name")
+  lastName      String?  @map("last_name")
+  company       String?
+  userType      UserType @default(customer) @map("user_type")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  isActive      Boolean  @default(true) @map("is_active")
+  projects      Project[]
   conversations Conversation[]
 
   @@map("users")
 }
 
 model Project {
-  id            Int          @id @default(autoincrement())
-  userId        Int?         @map("user_id")
-  name          String
-  description   String?
-  projectType   ProjectType  @map("project_type")
-  buildingSize  Decimal?     @map("building_size")
-  budgetRange   BudgetRange? @map("budget_range")
-  location      String?
-  status        ProjectStatus @default(planning)
-  createdAt     DateTime     @default(now()) @map("created_at")
-  updatedAt     DateTime     @updatedAt @map("updated_at")
-  user          User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  rooms         Room[]
-  tek17Compliance Tek17Compliance[]
+  id               Int                @id @default(autoincrement())
+  userId           Int?               @map("user_id")
+  name             String
+  description      String?
+  projectType      ProjectType        @map("project_type")
+  buildingSize     Decimal?           @map("building_size")
+  budgetRange      BudgetRange?       @map("budget_range")
+  location         String?
+  status           ProjectStatus      @default(planning)
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  user             User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rooms            Room[]
+  tek17Compliance  Tek17Compliance[]
   projectMaterials ProjectMaterial[]
   projectFinancing ProjectFinancing[]
 
@@ -49,36 +49,86 @@ model Project {
 }
 
 model Room {
-  id                  Int       @id @default(autoincrement())
-  projectId           Int       @map("project_id")
+  id                  Int           @id @default(autoincrement())
+  projectId           Int           @map("project_id")
   name                String
-  roomType            RoomType  @map("room_type")
+  roomType            RoomType      @map("room_type")
   area                Decimal?
-  ceilingHeight       Decimal?  @map("ceiling_height")
-  windowCount         Int?      @default(0) @map("window_count")
-  doorCount           Int?      @default(1) @map("door_count")
-  naturalLightRating  LightRating? @map("natural_light_rating")
-  functionDescription String?   @map("function_description")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  project             Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ceilingHeight       Decimal?      @map("ceiling_height")
+  windowCount         Int?          @default(0) @map("window_count")
+  doorCount           Int?          @default(1) @map("door_count")
+  naturalLightRating  LightRating?  @map("natural_light_rating")
+  functionDescription String?       @map("function_description")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  project             Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   spaceAnalysis       SpaceAnalysis[]
 
   @@map("rooms")
 }
 
 model Conversation {
-    id              Int      @id @default(autoincrement())
-    userId          Int?     @map("user_id")
-    sessionId       String   @map("session_id")
-    messageType     MessageType @map("message_type")
-    messageContent  String   @map("message_content")
-    createdAt       DateTime @default(now()) @map("created_at")
-    user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id             Int         @id @default(autoincrement())
+  userId         Int?        @map("user_id")
+  sessionId      String      @map("session_id")
+  messageType    MessageType @map("message_type")
+  messageContent String      @map("message_content")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  user           User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-    @@map("conversations")
+  @@map("conversations")
 }
 
-// ... Other models from schema.sql can be added here
+model Tek17Compliance {
+  id          Int      @id @default(autoincrement())
+  projectId   Int      @map("project_id")
+  requirement String
+  status      String
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("tek17_compliance")
+}
+
+model ProjectMaterial {
+  id           Int      @id @default(autoincrement())
+  projectId    Int      @map("project_id")
+  materialName String   @map("material_name")
+  supplier     String?
+  quantity     Decimal?
+  cost         Decimal?
+  createdAt    DateTime @default(now()) @map("created_at")
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_materials")
+}
+
+model ProjectFinancing {
+  id              Int       @id @default(autoincrement())
+  projectId       Int       @map("project_id")
+  source          String
+  amount          Decimal
+  status          String
+  applicationDate DateTime  @map("application_date")
+  approvalDate    DateTime? @map("approval_date")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_financing")
+}
+
+model SpaceAnalysis {
+  id              Int       @id @default(autoincrement())
+  roomId          Int       @map("room_id")
+  analysisType    String    @map("analysis_type")
+  result          String
+  recommendations String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  room            Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@map("space_analysis")
+}
 
 enum UserType {
   customer
@@ -131,6 +181,6 @@ enum LightRating {
 }
 
 enum MessageType {
-    user
-    assistant
+  user
+  assistant
 }
