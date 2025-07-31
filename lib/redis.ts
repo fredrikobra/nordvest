@@ -1,4 +1,4 @@
-import { Redis } from "@upstash/redis"
+import { Redis } from '@upstash/redis'
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL!,
@@ -6,34 +6,119 @@ const redis = new Redis({
 })
 
 export class CacheService {
-  static async get(key: string) {
+  // Cache keys
+  private static PROJECTS_KEY = 'projects:all'
+  private static PROJECT_KEY = (id: string) => `project:${id}`
+  private static CONVERSATIONS_KEY = (projectId?: string) => 
+    projectId ? `conversations:project:${projectId}` : 'conversations:all'
+  private static AI_ANALYSIS_KEY = (projectId: string) => `ai:analysis:${projectId}`
+  private static STATS_KEY = 'stats:projects'
+
+  // Project caching
+  static async cacheProjects(projects: any[], ttl = 300) {
     try {
-      return await redis.get(key)
+      await redis.setex(this.PROJECTS_KEY, ttl, JSON.stringify(projects))
     } catch (error) {
-      console.error("Redis get error:", error)
+      console.error('Cache projects error:', error)
+    }
+  }
+
+  static async getCachedProjects() {
+    try {
+      const cached = await redis.get(this.PROJECTS_KEY)
+      return cached ? JSON.parse(cached as string) : []
+    } catch (error) {
+      console.error('Get cached projects error:', error)
+      return []
+    }
+  }
+
+  static async cacheProject(project: any, ttl = 600) {
+    try {
+      await redis.setex(this.PROJECT_KEY(project.id), ttl, JSON.stringify(project))
+    } catch (error) {
+      console.error('Cache project error:', error)
+    }
+  }
+
+  static async getCachedProject(id: string) {
+    try {
+      const cached = await redis.get(this.PROJECT_KEY(id))
+      return cached ? JSON.parse(cached as string) : null
+    } catch (error) {
+      console.error('Get cached project error:', error)
       return null
     }
   }
 
-  static async set(key: string, value: any, ttl = 300) {
+  // Conversation caching
+  static async cacheConversations(conversations: any[], projectId?: string, ttl = 300) {
     try {
-      if (ttl > 0) {
-        return await redis.setex(key, ttl, JSON.stringify(value))
-      } else {
-        return await redis.set(key, JSON.stringify(value))
-      }
+      await redis.setex(this.CONVERSATIONS_KEY(projectId), ttl, JSON.stringify(conversations))
     } catch (error) {
-      console.error("Redis set error:", error)
+      console.error('Cache conversations error:', error)
+    }
+  }
+
+  static async getCachedConversations(projectId?: string) {
+    try {
+      const cached = await redis.get(this.CONVERSATIONS_KEY(projectId))
+      return cached ? JSON.parse(cached as string) : []
+    } catch (error) {
+      console.error('Get cached conversations error:', error)
+      return []
+    }
+  }
+
+  // Statistics caching
+  static async cacheStats(stats: any, ttl = 600) {
+    try {
+      await redis.setex(this.STATS_KEY, ttl, JSON.stringify(stats))
+    } catch (error) {
+      console.error('Cache stats error:', error)
+    }
+  }
+
+  static async getCachedStats() {
+    try {
+      const cached = await redis.get(this.STATS_KEY)
+      return cached ? JSON.parse(cached as string) : null
+    } catch (error) {
+      console.error('Get cached stats error:', error)
       return null
     }
   }
 
-  static async del(key: string) {
+  // AI Analysis caching
+  static async cacheAIAnalysis(projectId: string, analysis: any, ttl = 3600) {
     try {
-      return await redis.del(key)
+      await redis.setex(this.AI_ANALYSIS_KEY(projectId), ttl, JSON.stringify(analysis))
     } catch (error) {
-      console.error("Redis del error:", error)
+      console.error('Cache AI analysis error:', error)
+    }
+  }
+
+  static async getCachedAIAnalysis(projectId: string) {
+    try {
+      const cached = await redis.get(this.AI_ANALYSIS_KEY(projectId))
+      return cached ? JSON.parse(cached as string) : null
+    } catch (error) {
+      console.error('Get cached AI analysis error:', error)
       return null
+    }
+  }
+
+  // Cache invalidation
+  static async invalidateProject(id: string) {
+    try {
+      await Promise.all([
+        redis.del(this.PROJECT_KEY(id)),
+        redis.del(this.PROJECTS_KEY),
+        redis.del(this.AI_ANALYSIS_KEY(id)),
+        redis.del(this.STATS_KEY)
+      ])
+    } catch (error) {
+      console.error('Invalidate project error:', error)
     }
   }
 
@@ -41,47 +126,43 @@ export class CacheService {
     try {
       const keys = await redis.keys(pattern)
       if (keys.length > 0) {
-        return await redis.del(...keys)
+        await redis.del(...keys)
       }
-      return 0
     } catch (error) {
-      console.error("Redis invalidatePattern error:", error)
+      console.error('Invalidate pattern error:', error)
+    }
+  }
+
+  // General cache operations
+  static async set(key: string, value: any, ttl?: number) {
+    try {
+      if (ttl) {
+        await redis.setex(key, ttl, JSON.stringify(value))
+      } else {
+        await redis.set(key, JSON.stringify(value))
+      }
+    } catch (error) {
+      console.error('Cache set error:', error)
+    }
+  }
+
+  static async get(key: string) {
+    try {
+      const cached = await redis.get(key)
+      return cached ? JSON.parse(cached as string) : null
+    } catch (error) {
+      console.error('Cache get error:', error)
       return null
     }
   }
 
-  // Specific cache methods
-  static async getCachedProjects() {
-    const cached = await this.get("projects:all")
-    return cached ? JSON.parse(cached as string) : []
-  }
-
-  static async cacheProjects(projects: any[]) {
-    return await this.set("projects:all", projects, 300) // 5 minutes
-  }
-
-  static async getCachedProject(id: string) {
-    const cached = await this.get(`project:${id}`)
-    return cached ? JSON.parse(cached as string) : null
-  }
-
-  static async cacheProject(project: any) {
-    return await this.set(`project:${project.id}`, project, 600) // 10 minutes
-  }
-
-  static async invalidateProject(id: string) {
-    await this.del(`project:${id}`)
-    await this.invalidatePattern("projects:*")
-  }
-
-  static async getCachedConversations(projectId?: string) {
-    const key = projectId ? `conversations:${projectId}` : "conversations:all"
-    const cached = await this.get(key)
-    return cached ? JSON.parse(cached as string) : []
-  }
-
-  static async cacheConversations(conversations: any[], projectId?: string) {
-    const key = projectId ? `conversations:${projectId}` : "conversations:all"
-    return await this.set(key, conversations, 300) // 5 minutes
+  static async del(key: string) {
+    try {
+      await redis.del(key)
+    } catch (error) {
+      console.error('Cache delete error:', error)
+    }
   }
 }
+
+export { redis }
