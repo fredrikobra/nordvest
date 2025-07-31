@@ -6,7 +6,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Menu, X } from "lucide-react"
 
-const Header = () => {
+export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const toggleMobileMenu = () => {
@@ -14,7 +14,7 @@ const Header = () => {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center">
@@ -41,9 +41,6 @@ const Header = () => {
           </Link>
           <Link href="#prosess" className="text-sm font-medium hover:text-green-600 transition-colors">
             Prosess
-          </Link>
-          <Link href="/nordvest-expert" className="text-sm font-medium hover:text-green-600 transition-colors">
-            Nordvest Eksperten
           </Link>
           <Link href="#kontakt" className="text-sm font-medium hover:text-green-600 transition-colors">
             Kontakt
@@ -94,13 +91,6 @@ const Header = () => {
               Prosess
             </Link>
             <Link
-              href="/nordvest-expert"
-              className="py-2 text-lg font-medium hover:text-green-600 transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Nordvest Eksperten
-            </Link>
-            <Link
               href="#kontakt"
               className="py-2 text-lg font-medium hover:text-green-600 transition-colors"
               onClick={() => setMobileMenuOpen(false)}
@@ -114,5 +104,3 @@ const Header = () => {
     </header>
   )
 }
-
-export default Header

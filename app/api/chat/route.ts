@@ -1,57 +1,49 @@
-import { streamText } from "ai"
-import { xai } from "@ai-sdk/xai"
-import { createServerClient } from "@/lib/supabase"
-import type { NextRequest } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
+import { AIService } from "@/lib/ai"
+import { createMessage, createConversation } from "@/lib/supabase"
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const { messages, sessionId } = await req.json()
+    const { message, conversationId, projectId, context } = await request.json()
 
-    const supabase = createServerClient()
-
-    // Store user message
-    if (messages.length > 0) {
-      const userMessage = messages[messages.length - 1]
-      await supabase.from("chat_messages").insert({
-        session_id: sessionId,
-        role: "user",
-        content: userMessage.content,
-      })
+    if (!message) {
+      return NextResponse.json({ error: "Message is required" }, { status: 400 })
     }
 
-    const result = await streamText({
-      model: xai("grok-beta"),
-      messages,
-      system: `Du er Nordvest Eksperten, en AI-assistent for Nordvest Bygginnredning AS i Ålesund. 
+    // Generate AI response
+    const aiResponse = await AIService.generateResponse(message, context)
 
-Du hjelper kunder med:
-- Spørsmål om bygginnredning og renovering
-- Planlegging av prosjekter
-- Materialvalg og design
-- Prisestimater og tilbud
-- Tidsrammer for prosjekter
+    // Save conversation if new
+    let currentConversationId = conversationId
+    if (!currentConversationId) {
+      const conversation = await createConversation({
+        project_id: projectId,
+        title: message.substring(0, 50) + "...",
+      })
+      currentConversationId = conversation.id
+    }
 
-Nordvest Bygginnredning AS:
-- Lokalisert på Tua 24, 6020 Ålesund
-- Spesialiserer seg på kvalitetsinnredning
-- Fokus på bærekraftige løsninger
-- Erfarne håndverkere
-- Tilbyr alt fra små oppgraderinger til store renoveringer
-
-Svar alltid på norsk og vær hjelpsom, profesjonell og kunnskapsrik om bygginnredning.`,
-      onFinish: async (result) => {
-        // Store assistant response
-        await supabase.from("chat_messages").insert({
-          session_id: sessionId,
-          role: "assistant",
-          content: result.text,
-        })
-      },
+    // Save messages
+    await createMessage({
+      conversation_id: currentConversationId,
+      role: "user",
+      content: message,
+      metadata: context || {},
     })
 
-    return result.toDataStreamResponse()
+    await createMessage({
+      conversation_id: currentConversationId,
+      role: "assistant",
+      content: aiResponse,
+      metadata: {},
+    })
+
+    return NextResponse.json({
+      response: aiResponse,
+      conversationId: currentConversationId,
+    })
   } catch (error) {
-    console.error("Chat API error:", error)
-    return new Response("Internal Server Error", { status: 500 })
+    console.error("Chat error:", error)
+    return NextResponse.json({ error: "Failed to process chat message" }, { status: 500 })
   }
 }
