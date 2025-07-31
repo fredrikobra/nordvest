@@ -1,0 +1,136 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  email       String   @unique
+  password_hash String
+  firstName   String?  @map("first_name")
+  lastName    String?  @map("last_name")
+  company     String?
+  userType    UserType @default(customer) @map("user_type")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  isActive    Boolean  @default(true) @map("is_active")
+  projects    Project[]
+  conversations Conversation[]
+
+  @@map("users")
+}
+
+model Project {
+  id            Int          @id @default(autoincrement())
+  userId        Int?         @map("user_id")
+  name          String
+  description   String?
+  projectType   ProjectType  @map("project_type")
+  buildingSize  Decimal?     @map("building_size")
+  budgetRange   BudgetRange? @map("budget_range")
+  location      String?
+  status        ProjectStatus @default(planning)
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  user          User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rooms         Room[]
+  tek17Compliance Tek17Compliance[]
+  projectMaterials ProjectMaterial[]
+  projectFinancing ProjectFinancing[]
+
+  @@map("projects")
+}
+
+model Room {
+  id                  Int       @id @default(autoincrement())
+  projectId           Int       @map("project_id")
+  name                String
+  roomType            RoomType  @map("room_type")
+  area                Decimal?
+  ceilingHeight       Decimal?  @map("ceiling_height")
+  windowCount         Int?      @default(0) @map("window_count")
+  doorCount           Int?      @default(1) @map("door_count")
+  naturalLightRating  LightRating? @map("natural_light_rating")
+  functionDescription String?   @map("function_description")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  project             Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  spaceAnalysis       SpaceAnalysis[]
+
+  @@map("rooms")
+}
+
+model Conversation {
+    id              Int      @id @default(autoincrement())
+    userId          Int?     @map("user_id")
+    sessionId       String   @map("session_id")
+    messageType     MessageType @map("message_type")
+    messageContent  String   @map("message_content")
+    createdAt       DateTime @default(now()) @map("created_at")
+    user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+    @@map("conversations")
+}
+
+// ... Other models from schema.sql can be added here
+
+enum UserType {
+  customer
+  architect
+  designer
+  contractor
+  admin
+}
+
+enum ProjectType {
+  office
+  residential
+  school
+  healthcare
+  retail
+  other
+}
+
+enum BudgetRange {
+  under_500k
+  five_hundred_k_1m
+  one_m_2m
+  two_m_5m
+  over_5m
+}
+
+enum ProjectStatus {
+  planning
+  design
+  approval
+  construction
+  completed
+}
+
+enum RoomType {
+  office
+  meeting
+  kitchen
+  bathroom
+  storage
+  reception
+  corridor
+  other
+}
+
+enum LightRating {
+  low
+  medium
+  high
+}
+
+enum MessageType {
+    user
+    assistant
+}
