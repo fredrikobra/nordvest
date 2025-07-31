@@ -1,4 +1,10 @@
-import MapLoader from "./map-loader"
+import dynamic from "next/dynamic"
+import { Skeleton } from "@/components/ui/skeleton"
+
+const MapClient = dynamic(() => import("./map-client"), {
+  ssr: false,
+  loading: () => <Skeleton className="h-[450px] md:h-[500px] w-full rounded-xl" />,
+})
 
 export default function MapSection() {
   return (
@@ -10,7 +16,7 @@ export default function MapSection() {
             Besøk oss på Tua 24 i Ålesund for en uforpliktende samtale om ditt prosjekt.
           </p>
         </div>
-        <MapLoader />
+        <MapClient />
       </div>
     </section>
   )

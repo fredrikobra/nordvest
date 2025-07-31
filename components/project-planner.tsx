@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useRef } from "react"
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -8,9 +10,8 @@ import { Slider } from "@/components/ui/slider"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Toggle } from "@/components/ui/toggle"
-import { ArrowRight, Layers, Ruler, Shield, Repeat, Mail, Phone, User, Building, ArrowUp, Sparkles } from "lucide-react"
+import { ArrowRight, Layers, Ruler, Shield, Repeat, Mail, Phone, User, Building, ArrowUp } from "lucide-react"
 import Image from "next/image"
-import { InspirationChat } from "./inspiration-chat"
 
 // Data for system components
 const systemComponents = [
@@ -84,100 +85,138 @@ const StickyProgressTracker = ({
   toggleComponent: (id: string) => void
   updateDetails: (id: string, value: number) => void
 }) => {
-  const [isChatOpen, setChatOpen] = useState(false)
+  const [showInspirationInput, setShowInspirationInput] = useState(false)
+  const [inspirationText, setInspirationText] = useState("")
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleInspirationClick = () => {
+    setShowInspirationInput(true)
+    setTimeout(() => {
+      inputRef.current?.focus()
+    }, 100)
+  }
+
+  const handleInspirationSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    // Handle inspiration submission here
+    console.log("Inspiration:", inspirationText)
+  }
+
+  const handleInspirationBlur = () => {
+    if (!inspirationText.trim()) {
+      setShowInspirationInput(false)
+    }
+  }
   const isAnyComponentSelected = selectedComponents.length > 0
 
   return (
-    <>
-      <InspirationChat open={isChatOpen} onOpenChange={setChatOpen} />
-      <AnimatePresence>
-        {isVisible && (
-          <motion.div
-            initial={{ y: "-100%" }}
-            animate={{ y: "0%" }}
-            exit={{ y: "-100%" }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="fixed top-16 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 z-40"
-          >
-            <div className="container mx-auto px-4">
-              <div className="h-14 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-medium text-slate-800 dark:text-slate-200 hidden sm:block">
-                      Valgte Løsninger
-                    </h4>
-                    <TooltipProvider delayDuration={0}>
-                      <div className="flex items-center gap-1 sm:gap-2 rounded-full border bg-slate-100 dark:bg-slate-800 p-1">
-                        {systemComponents.map((component) => (
-                          <Tooltip key={component.id}>
-                            <TooltipTrigger asChild>
-                              <Toggle
-                                size="sm"
-                                pressed={selectedComponents.includes(component.id)}
-                                onPressedChange={() => toggleComponent(component.id)}
-                                className="rounded-full data-[state=on]:bg-green-600 data-[state=on]:text-white hover:bg-slate-200 dark:hover:bg-slate-700"
-                              >
-                                {component.icon}
-                              </Toggle>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom">
-                              <p>{component.name}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </TooltipProvider>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={() => setChatOpen(true)}>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Inspirasjon
-                  </Button>
-                </div>
-                <Button size="sm" variant="ghost" onClick={onJumpToPlanner}>
-                  <ArrowUp className="h-4 w-4 md:mr-2" />
-                  <span className="hidden md:inline">Til Planlegger</span>
-                </Button>
-              </div>
-              <AnimatePresence>
-                {isAnyComponentSelected && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3, ease: "easeInOut" }}
-                    className="overflow-hidden"
-                  >
-                    <div className="py-4 border-t border-slate-200 dark:border-slate-800">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4">
-                        {systemComponents
-                          .filter((c) => selectedComponents.includes(c.id))
-                          .map((component) => (
-                            <div key={component.id}>
-                              <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
-                                {component.name}:{" "}
-                                <span className="font-bold text-slate-900 dark:text-slate-50">
-                                  {projectDetails[component.id] || 0} meter
-                                </span>
-                              </label>
-                              <Slider
-                                value={[projectDetails[component.id] || 0]}
-                                min={5}
-                                max={200}
-                                step={5}
-                                onValueChange={(value) => updateDetails(component.id, value[0])}
-                              />
-                            </div>
-                          ))}
-                      </div>
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          initial={{ y: "-100%" }}
+          animate={{ y: "0%" }}
+          exit={{ y: "-100%" }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          className="fixed top-16 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 z-[1000]"
+        >
+          <div className="container mx-auto px-4">
+            <div className="h-14 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2 sm:gap-4">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-medium text-slate-800 dark:text-slate-200 hidden sm:block">
+                    Valgte Løsninger
+                  </h4>
+                  <TooltipProvider delayDuration={0}>
+                    <div className="flex items-center gap-1 sm:gap-2 rounded-full border bg-slate-100 dark:bg-slate-800 p-1">
+                      {systemComponents.map((component) => (
+                        <Tooltip key={component.id}>
+                          <TooltipTrigger asChild>
+                            <Toggle
+                              size="sm"
+                              pressed={selectedComponents.includes(component.id)}
+                              onPressedChange={() => toggleComponent(component.id)}
+                              className="rounded-full data-[state=on]:bg-green-600 data-[state=on]:text-white hover:bg-slate-200 dark:hover:bg-slate-700"
+                            >
+                              {component.icon}
+                            </Toggle>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            <p>{component.name}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </TooltipProvider>
+                </div>
+                <div className="flex items-center">
+                  {showInspirationInput ? (
+                    <form onSubmit={handleInspirationSubmit} className="flex items-center">
+                      <input
+                        ref={inputRef}
+                        type="text"
+                        placeholder="Legg til inspirasjon..."
+                        value={inspirationText}
+                        onChange={(e) => setInspirationText(e.target.value)}
+                        onBlur={handleInspirationBlur}
+                        className="w-32 sm:w-40 md:w-48 text-xs sm:text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </form>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleInspirationClick}
+                      className="text-xs sm:text-sm px-2 sm:px-3"
+                    >
+                      Inspirasjon
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <Button size="sm" variant="ghost" onClick={onJumpToPlanner}>
+                <ArrowUp className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Til Planlegger</span>
+              </Button>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
+            <AnimatePresence>
+              {isAnyComponentSelected && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="overflow-hidden"
+                >
+                  <div className="py-4 border-t border-slate-200 dark:border-slate-800">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4">
+                      {systemComponents
+                        .filter((c) => selectedComponents.includes(c.id))
+                        .map((component) => (
+                          <div key={component.id}>
+                            <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">
+                              {component.name}:{" "}
+                              <span className="font-bold text-slate-900 dark:text-slate-50">
+                                {projectDetails[component.id] || 0} meter
+                              </span>
+                            </label>
+                            <Slider
+                              value={[projectDetails[component.id] || 0]}
+                              min={5}
+                              max={200}
+                              step={5}
+                              onValueChange={(value) => updateDetails(component.id, value[0])}
+                            />
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
 

@@ -1,13 +1,13 @@
 import type React from "react"
 import Link from "next/link"
-import { Instagram, Facebook, Linkedin, Twitter } from "lucide-react"
+import { Instagram, Linkedin, Facebook } from "lucide-react"
 
-const SocialIcon = ({ href, children }: { href: string; children: React.ReactNode }) => (
+const SocialLink = ({ href, children }: { href: string; children: React.ReactNode }) => (
   <a
     href={href}
     target="_blank"
     rel="noopener noreferrer"
-    className="h-10 w-10 bg-gray-800 hover:bg-gray-700 text-white rounded-full flex items-center justify-center transition-colors"
+    className="h-10 w-10 flex items-center justify-center rounded-full bg-slate-800 text-slate-400 hover:bg-green-600 hover:text-white transition-colors"
   >
     {children}
   </a>
@@ -15,82 +15,94 @@ const SocialIcon = ({ href, children }: { href: string; children: React.ReactNod
 
 export default function Footer() {
   return (
-    <footer className="bg-black text-gray-300 py-12 md:py-20">
-      <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12">
-          <div className="md:col-span-4 space-y-4">
-            <h3 className="text-2xl font-semibold text-white">Gjennomtenkt design, formet av kvalitet.</h3>
-            <p className="text-gray-400">Vi skaper rom med tilstedeværelse – fundert, bevisst og tidløst.</p>
-            <div className="flex space-x-3 pt-2">
-              <SocialIcon href="#">
+    <footer className="bg-black text-slate-300 py-16 md:py-24">
+      <div className="container">
+        <div className="grid grid-cols-1 md:grid-cols-10 gap-12">
+          <div className="md:col-span-4">
+            <h2 className="text-2xl md:text-3xl font-medium text-white mb-4">
+              Bærekraftig bygginnredning, formet av presisjon.
+            </h2>
+            <p className="text-slate-400 mb-6 max-w-sm">
+              Vi designer rom med en tilstedeværelse forankret i det bevisste, intensjonelle og tidløse.
+            </p>
+            <div className="flex gap-3">
+              <SocialLink href="#">
                 <Instagram className="h-5 w-5" />
-              </SocialIcon>
-              <SocialIcon href="#">
+              </SocialLink>
+              <SocialLink href="#">
                 <Linkedin className="h-5 w-5" />
-              </SocialIcon>
-              <SocialIcon href="#">
-                <Twitter className="h-5 w-5" />
-              </SocialIcon>
-              <SocialIcon href="#">
+              </SocialLink>
+              <SocialLink href="#">
                 <Facebook className="h-5 w-5" />
-              </SocialIcon>
+              </SocialLink>
             </div>
           </div>
 
-          <div className="md:col-span-2 md:col-start-6">
-            <h4 className="text-lg font-semibold text-white mb-4">Meny</h4>
-            <ul className="space-y-3">
+          <div className="md:col-span-1" />
+
+          <div className="md:col-span-2">
+            <ul className="space-y-3 text-lg">
               <li>
-                <Link href="/" className="hover:text-white transition-colors">
-                  Hjem
+                <Link href="#om-oss" className="hover:text-white transition-colors">
+                  Om oss
                 </Link>
               </li>
               <li>
-                <Link href="/tjenester" className="hover:text-white transition-colors">
+                <Link href="#tjenester" className="hover:text-white transition-colors">
                   Tjenester
                 </Link>
               </li>
               <li>
-                <Link href="/prosjekter" className="hover:text-white transition-colors">
-                  Prosjekter
+                <Link href="#fordeler" className="hover:text-white transition-colors">
+                  Fordeler
                 </Link>
               </li>
               <li>
-                <Link href="/om-oss" className="hover:text-white transition-colors">
-                  Om Oss
+                <Link href="#prosess" className="hover:text-white transition-colors">
+                  Prosess
                 </Link>
               </li>
               <li>
-                <Link href="/kontakt" className="hover:text-white transition-colors">
+                <Link href="#kontakt" className="hover:text-white transition-colors">
                   Kontakt
                 </Link>
               </li>
             </ul>
           </div>
 
-          <div className="md:col-span-4">
-            <h4 className="text-lg font-semibold text-white mb-4">Vårt Showroom</h4>
-            <div className="space-y-2 text-gray-400">
-              <p>Industrivegen 23, 6490 Eide</p>
-              <p>Norge</p>
-              <div className="pt-2">
-                <p className="font-semibold text-gray-300">Åpningstider:</p>
-                <p>Man – Fre / 08.00 – 16.00</p>
-                <p>Stengt på helligdager</p>
+          <div className="md:col-span-3">
+            <h3 className="text-lg font-medium text-white mb-4">Vårt Kontor</h3>
+            <div className="text-slate-400 space-y-4">
+              <p>
+                Tua 24, 6010 Ålesund
+                <br />
+                Norge
+              </p>
+              <div>
+                <p>
+                  <a href="mailto:post@nvbi.no" className="hover:text-white transition-colors">
+                    post@nvbi.no
+                  </a>
+                </p>
+                <p>
+                  <a href="tel:+4790560977" className="hover:text-white transition-colors">
+                    +47 905 60 977
+                  </a>
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-12 md:mt-20 border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center text-sm">
-          <p className="text-gray-500 mb-4 md:mb-0">
-            &copy; {new Date().getFullYear()} Nordvest Bygginnredning. Alle rettigheter forbeholdt.
+        <div className="border-t border-slate-800 mt-16 pt-8 flex flex-col md:flex-row justify-between items-center text-slate-500">
+          <p className="text-sm text-center md:text-left mb-4 md:mb-0">
+            © {new Date().getFullYear()} Nordvest Bygginnredning AS. Alle rettigheter reservert.
           </p>
-          <div className="flex space-x-6">
-            <Link href="/terms" className="hover:text-white transition-colors">
-              Vilkår og betingelser
+          <div className="flex gap-6 text-sm">
+            <Link href="#" className="hover:text-white transition-colors">
+              Vilkår
             </Link>
-            <Link href="/privacy" className="hover:text-white transition-colors">
+            <Link href="#" className="hover:text-white transition-colors">
               Personvern
             </Link>
           </div>
